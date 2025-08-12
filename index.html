@@ -18,20 +18,20 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-medium); /* Changed for desktop app feel */
+            background-color: var(--bg-medium);
             color: var(--text-primary);
             margin: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            user-select: none; /* Prevent text selection */
+            user-select: none;
         }
 
         .app-container {
             display: flex;
             width: 100%;
-            height: 100vh; /* Fill the whole window */
+            height: 100vh;
             background-color: var(--bg-medium);
             overflow: hidden;
         }
@@ -41,7 +41,7 @@
             width: 35%;
             background-color: rgba(0,0,0,0.1);
             padding: 20px;
-            padding-top: 40px; /* Space for traffic lights */
+            padding-top: 40px;
             display: flex;
             flex-direction: column;
             border-right: 1px solid var(--bg-light);
@@ -63,12 +63,16 @@
         }
 
         .event-item {
+            display: flex; /* Make it a flex container */
+            justify-content: space-between; /* Space out the content and the button */
+            align-items: center;
             padding: 15px;
             margin-bottom: 10px;
             border-radius: 8px;
             cursor: pointer;
             transition: background-color 0.2s;
             border: 1px solid transparent;
+            position: relative;
         }
         .event-item:hover {
             background-color: rgba(255,255,255,0.05);
@@ -78,6 +82,9 @@
             color: white;
             border-color: #63b3ed;
         }
+        .event-item .event-details {
+            flex-grow: 1; /* Allow details to take up remaining space */
+        }
         .event-item .event-name {
             font-weight: 600;
         }
@@ -86,7 +93,25 @@
             opacity: 0.8;
             margin-top: 4px;
         }
-        
+        .delete-btn {
+            background-color: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.2s, background-color 0.2s;
+        }
+        .event-item:hover .delete-btn {
+            opacity: 1;
+        }
+        .delete-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--accent-red);
+        }
+
         .add-event-btn {
             background-color: var(--accent-green);
             color: white;
@@ -106,7 +131,7 @@
         .main-content {
             width: 65%;
             padding: 40px;
-            padding-top: 50px; /* Space for window controls */
+            padding-top: 50px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -183,7 +208,7 @@
             pointer-events: auto;
         }
         .modal-content {
-            background-color: var(--bg-dark); /* Darker modal background */
+            background-color: var(--bg-dark);
             padding: 30px;
             border-radius: 15px;
             width: 90%;
@@ -269,8 +294,6 @@
     </div>
 
     <script>
-        // The JavaScript is exactly the same as the web version.
-        // It's placed here for completeness.
         document.addEventListener('DOMContentLoaded', () => {
             const eventListEl = document.getElementById('event-list');
             const mainContentEl = document.getElementById('main-content');
@@ -294,6 +317,8 @@
                 eventListEl.innerHTML = '';
                 if (events.length === 0) {
                     mainContentEl.innerHTML = `<div class="welcome-message" id="welcome-message"><h3>Welcome to Countdown Hub</h3><p>Add an event to get started!</p></div>`;
+                    if (countdownInterval) clearInterval(countdownInterval);
+                    activeEventId = null;
                 }
                 events.sort((a, b) => new Date(a.date) - new Date(b.date));
                 events.forEach(event => {
@@ -310,10 +335,22 @@
                     });
 
                     item.innerHTML = `
-                        <div class="event-name">${event.name}</div>
-                        <div class="event-date">${dateString}</div>
+                        <div class="event-details">
+                            <div class="event-name">${event.name}</div>
+                            <div class="event-date">${dateString}</div>
+                        </div>
+                        <button class="delete-btn" data-id="${event.id}">x</button>
                     `;
-                    item.addEventListener('click', () => selectEvent(event.id));
+
+                    // Handle click on the event item itself (excluding the delete button)
+                    item.querySelector('.event-details').addEventListener('click', () => selectEvent(event.id));
+
+                    // Handle click on the delete button
+                    item.querySelector('.delete-btn').addEventListener('click', (e) => {
+                        e.stopPropagation(); // Prevent the parent li from being clicked
+                        deleteEvent(event.id);
+                    });
+
                     eventListEl.appendChild(item);
                 });
             };
@@ -339,6 +376,18 @@
                 const now = new Date().getTime();
                 const difference = targetTime - now;
 
+                if (difference <= 0) {
+                    if (countdownInterval) clearInterval(countdownInterval);
+                    const daysEl = document.getElementById('days');
+                    if (daysEl) {
+                        daysEl.textContent = 0;
+                        document.getElementById('hours').textContent = 0;
+                        document.getElementById('minutes').textContent = 0;
+                        document.getElementById('seconds').textContent = 0;
+                    }
+                    return;
+                }
+
                 const days = Math.floor(difference / (1000 * 60 * 60 * 24));
                 const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                 const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
@@ -346,14 +395,10 @@
 
                 const daysEl = document.getElementById('days');
                 if(daysEl) {
-                    daysEl.textContent = days < 0 ? 0 : days;
-                    document.getElementById('hours').textContent = hours < 0 ? 0 : hours;
-                    document.getElementById('minutes').textContent = minutes < 0 ? 0 : minutes;
-                    document.getElementById('seconds').textContent = seconds < 0 ? 0 : seconds;
-                }
-                
-                if (difference < 0) {
-                    clearInterval(countdownInterval);
+                    daysEl.textContent = days;
+                    document.getElementById('hours').textContent = hours;
+                    document.getElementById('minutes').textContent = minutes;
+                    document.getElementById('seconds').textContent = seconds;
                 }
             };
 
@@ -365,6 +410,20 @@
                     renderCountdownDisplay(event);
                     if (countdownInterval) clearInterval(countdownInterval);
                     countdownInterval = setInterval(() => updateCountdown(event), 1000);
+                }
+            };
+
+            const deleteEvent = (id) => {
+                events = events.filter(event => event.id !== id);
+                saveEvents();
+                if (activeEventId === id) {
+                    if (events.length > 0) {
+                        selectEvent(events[0].id);
+                    } else {
+                        renderEventList(); // This will show the welcome message
+                    }
+                } else {
+                    renderEventList();
                 }
             };
             
