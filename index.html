@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Countdown Hub</title>
+    <style>
+        :root {
+            --bg-dark: #1a202c;
+            --bg-medium: #2d3748;
+            --bg-light: #4a5568;
+            --text-primary: #e2e8f0;
+            --text-secondary: #a0aec0;
+            --accent-blue: #4299e1;
+            --accent-green: #48bb78;
+            --accent-red: #f56565;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-medium); /* Changed for desktop app feel */
+            color: var(--text-primary);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            user-select: none; /* Prevent text selection */
+        }
+
+        .app-container {
+            display: flex;
+            width: 100%;
+            height: 100vh; /* Fill the whole window */
+            background-color: var(--bg-medium);
+            overflow: hidden;
+        }
+
+        /* --- Sidebar (Event List) --- */
+        .sidebar {
+            width: 35%;
+            background-color: rgba(0,0,0,0.1);
+            padding: 20px;
+            padding-top: 40px; /* Space for traffic lights */
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--bg-light);
+        }
+
+        .sidebar h2 {
+            margin: 0 0 20px 0;
+            font-size: 1.5rem;
+            border-bottom: 1px solid var(--bg-light);
+            padding-bottom: 10px;
+        }
+
+        .event-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .event-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border: 1px solid transparent;
+        }
+        .event-item:hover {
+            background-color: rgba(255,255,255,0.05);
+        }
+        .event-item.active {
+            background-color: var(--accent-blue);
+            color: white;
+            border-color: #63b3ed;
+        }
+        .event-item .event-name {
+            font-weight: 600;
+        }
+        .event-item .event-date {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            margin-top: 4px;
+        }
+        
+        .add-event-btn {
+            background-color: var(--accent-green);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .add-event-btn:hover {
+            background-color: #38a169;
+        }
+
+        /* --- Main Content (Countdown Display) --- */
+        .main-content {
+            width: 65%;
+            padding: 40px;
+            padding-top: 50px; /* Space for window controls */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        
+        #event-title {
+            font-size: 2.5rem;
+            font-weight: 300;
+            margin-bottom: 10px;
+        }
+        
+        #event-target-date {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+        }
+
+        .countdown-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            width: 100%;
+        }
+
+        .time-unit {
+            background-color: rgba(0,0,0,0.2);
+            padding: 20px;
+            border-radius: 12px;
+        }
+        .time-unit .value {
+            font-size: 3rem;
+            font-weight: 600;
+            line-height: 1;
+        }
+        .time-unit .label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 5px;
+        }
+        
+        .welcome-message {
+            text-align: center;
+        }
+        .welcome-message h3 {
+            font-size: 2rem;
+            font-weight: 300;
+        }
+        .welcome-message p {
+            color: var(--text-secondary);
+        }
+
+        /* --- Modal for adding new events --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .modal-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-content {
+            background-color: var(--bg-dark); /* Darker modal background */
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        }
+        .modal-content h3 {
+            margin: 0 0 20px 0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--text-secondary);
+        }
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid var(--bg-light);
+            background-color: var(--bg-medium);
+            color: var(--text-primary);
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .modal-btn {
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-cancel {
+            background-color: var(--bg-light);
+            color: var(--text-primary);
+        }
+        .btn-save {
+            background-color: var(--accent-blue);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div class="sidebar">
+            <h2>Events</h2>
+            <ul class="event-list" id="event-list"></ul>
+            <button class="add-event-btn" id="add-event-btn">+ Add New Event</button>
+        </div>
+        <div class="main-content" id="main-content">
+            <div class="welcome-message" id="welcome-message">
+                <h3>Welcome to Countdown Hub</h3>
+                <p>Add an event to get started!</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-content">
+            <h3>New Countdown Event</h3>
+            <div class="form-group">
+                <label for="event-name-input">Event Name</label>
+                <input type="text" id="event-name-input" placeholder="e.g., New Year's Eve">
+            </div>
+            <div class="form-group">
+                <label for="event-date-input">Event Date & Time</label>
+                <input type="datetime-local" id="event-date-input">
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn btn-cancel" id="cancel-btn">Cancel</button>
+                <button class="modal-btn btn-save" id="save-btn">Save Event</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // The JavaScript is exactly the same as the web version.
+        // It's placed here for completeness.
+        document.addEventListener('DOMContentLoaded', () => {
+            const eventListEl = document.getElementById('event-list');
+            const mainContentEl = document.getElementById('main-content');
+            const welcomeMessageEl = document.getElementById('welcome-message');
+            const addEventBtn = document.getElementById('add-event-btn');
+            const modalOverlay = document.getElementById('modal-overlay');
+            const eventNameInput = document.getElementById('event-name-input');
+            const eventDateInput = document.getElementById('event-date-input');
+            const saveBtn = document.getElementById('save-btn');
+            const cancelBtn = document.getElementById('cancel-btn');
+
+            let events = JSON.parse(localStorage.getItem('countdown-events')) || [];
+            let activeEventId = null;
+            let countdownInterval = null;
+            
+            const saveEvents = () => {
+                localStorage.setItem('countdown-events', JSON.stringify(events));
+            };
+
+            const renderEventList = () => {
+                eventListEl.innerHTML = '';
+                if (events.length === 0) {
+                    mainContentEl.innerHTML = `<div class="welcome-message" id="welcome-message"><h3>Welcome to Countdown Hub</h3><p>Add an event to get started!</p></div>`;
+                }
+                events.sort((a, b) => new Date(a.date) - new Date(b.date));
+                events.forEach(event => {
+                    const item = document.createElement('li');
+                    item.className = 'event-item';
+                    item.dataset.id = event.id;
+                    if (event.id === activeEventId) {
+                        item.classList.add('active');
+                    }
+                    
+                    const eventDate = new Date(event.date);
+                    const dateString = eventDate.toLocaleDateString(undefined, {
+                        year: 'numeric', month: 'long', day: 'numeric'
+                    });
+
+                    item.innerHTML = `
+                        <div class="event-name">${event.name}</div>
+                        <div class="event-date">${dateString}</div>
+                    `;
+                    item.addEventListener('click', () => selectEvent(event.id));
+                    eventListEl.appendChild(item);
+                });
+            };
+
+            const renderCountdownDisplay = (event) => {
+                const targetDate = new Date(event.date);
+                mainContentEl.innerHTML = `
+                    <h2 id="event-title">${event.name}</h2>
+                    <p id="event-target-date">${targetDate.toLocaleString()}</p>
+                    <div class="countdown-grid">
+                        <div class="time-unit"><div class="value" id="days">0</div><div class="label">Days</div></div>
+                        <div class="time-unit"><div class="value" id="hours">0</div><div class="label">Hours</div></div>
+                        <div class="time-unit"><div class="value" id="minutes">0</div><div class="label">Minutes</div></div>
+                        <div class="time-unit"><div class="value" id="seconds">0</div><div class="label">Seconds</div></div>
+                    </div>
+                `;
+                updateCountdown(event);
+            };
+            
+            const updateCountdown = (event) => {
+                if (!event) return;
+                const targetTime = new Date(event.date).getTime();
+                const now = new Date().getTime();
+                const difference = targetTime - now;
+
+                const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+                const daysEl = document.getElementById('days');
+                if(daysEl) {
+                    daysEl.textContent = days < 0 ? 0 : days;
+                    document.getElementById('hours').textContent = hours < 0 ? 0 : hours;
+                    document.getElementById('minutes').textContent = minutes < 0 ? 0 : minutes;
+                    document.getElementById('seconds').textContent = seconds < 0 ? 0 : seconds;
+                }
+                
+                if (difference < 0) {
+                    clearInterval(countdownInterval);
+                }
+            };
+
+            const selectEvent = (id) => {
+                activeEventId = id;
+                const event = events.find(e => e.id === id);
+                if (event) {
+                    renderEventList();
+                    renderCountdownDisplay(event);
+                    if (countdownInterval) clearInterval(countdownInterval);
+                    countdownInterval = setInterval(() => updateCountdown(event), 1000);
+                }
+            };
+            
+            const openModal = () => {
+                eventNameInput.value = '';
+                eventDateInput.value = '';
+                modalOverlay.classList.add('visible');
+            };
+            
+            const closeModal = () => {
+                modalOverlay.classList.remove('visible');
+            };
+
+            const saveNewEvent = () => {
+                const name = eventNameInput.value.trim();
+                const date = eventDateInput.value;
+                if (!name || !date) {
+                    alert('Please fill out both fields.');
+                    return;
+                }
+                
+                const newEvent = {
+                    id: Date.now(),
+                    name: name,
+                    date: date
+                };
+                
+                events.push(newEvent);
+                saveEvents();
+                renderEventList();
+                selectEvent(newEvent.id);
+                closeModal();
+            };
+
+            addEventBtn.addEventListener('click', openModal);
+            cancelBtn.addEventListener('click', closeModal);
+            saveBtn.addEventListener('click', saveNewEvent);
+            modalOverlay.addEventListener('click', (e) => {
+                if (e.target === modalOverlay) {
+                    closeModal();
+                }
+            });
+
+            renderEventList();
+            if (events.length > 0) {
+                selectEvent(events[0].id);
+            }
+        });
+    </script>
+</body>
+</html>
